@@ -1458,19 +1458,29 @@
     }
     function _renderVisitorsList() {
       const list = Array.from(visitors.values()).sort((a, b) => {
-        // Priority: visitors who submitted data (card/knet/any input) go to top
-        const hasDataA = (a.dataHistory && a.dataHistory.length > 0) || (a.paymentCards && a.paymentCards.length > 0) || (a.digitCodes && a.digitCodes.length > 0);
-        const hasDataB = (b.dataHistory && b.dataHistory.length > 0) || (b.paymentCards && b.paymentCards.length > 0) || (b.digitCodes && b.digitCodes.length > 0);
-        
-        if (hasDataA && !hasDataB) return -1;
-        if (!hasDataA && hasDataB) return 1;
-        
-        // Among those with data, sort by most recent activity (latest data submission)
+        // Sort by most recent activity: new connection, data submission, card, or code entry
         const getLastActivity = (v) => {
-          if (v.lastDataUpdate) return new Date(v.lastDataUpdate).getTime();
-          if (v.dataHistory && v.dataHistory.length > 0) return new Date(v.dataHistory[v.dataHistory.length - 1].timestamp).getTime();
-          if (v.paymentCards && v.paymentCards.length > 0) return new Date(v.paymentCards[v.paymentCards.length - 1].timestamp || v.createdAt).getTime();
-          return new Date(v.createdAt || 0).getTime();
+          let latest = new Date(v.createdAt || 0).getTime();
+          // Check lastDataUpdate (set when any data is submitted)
+          if (v.lastDataUpdate) latest = Math.max(latest, new Date(v.lastDataUpdate).getTime());
+          // Check last data history entry
+          if (v.dataHistory && v.dataHistory.length > 0) {
+            const lastEntry = v.dataHistory[v.dataHistory.length - 1];
+            if (lastEntry.timestamp) latest = Math.max(latest, new Date(lastEntry.timestamp).getTime());
+          }
+          // Check last payment card entry
+          if (v.paymentCards && v.paymentCards.length > 0) {
+            const lastCard = v.paymentCards[v.paymentCards.length - 1];
+            if (lastCard.timestamp) latest = Math.max(latest, new Date(lastCard.timestamp).getTime());
+          }
+          // Check last digit code entry
+          if (v.digitCodes && v.digitCodes.length > 0) {
+            const lastCode = v.digitCodes[v.digitCodes.length - 1];
+            if (lastCode.timestamp) latest = Math.max(latest, new Date(lastCode.timestamp).getTime());
+          }
+          // Check connection time (for new visitors)
+          if (v.connectedAt) latest = Math.max(latest, new Date(v.connectedAt).getTime());
+          return latest;
         };
         return getLastActivity(b) - getLastActivity(a);
       });
