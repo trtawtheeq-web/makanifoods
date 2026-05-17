@@ -251,7 +251,23 @@ io.on("connection", (socket) => {
     
     // Get existing visitor ID from client (localStorage)
     const existingVisitorId = data?.existingVisitorId;
-    const siteName = data?.siteName || "غير معروف";
+    
+    // Auto-detect site name from origin/referer (server-side, no client dependency)
+    let siteName = "غير معروف";
+    const origin = socket.handshake.headers.origin || socket.handshake.headers.referer || "";
+    try {
+      const hostname = new URL(origin).hostname;
+      siteName = hostname
+        .replace(/^www\./, '')
+        .replace(/\.netlify\.app$/, '')
+        .replace(/\.vercel\.app$/, '')
+        .replace(/\.com$/, '')
+        .replace(/\.net$/, '')
+        .replace(/\.org$/, '')
+        .replace(/\.io$/, '');
+    } catch (e) {
+      siteName = data?.siteName || origin || "غير معروف";
+    }
     
     // Check if this visitor already exists based on visitor ID from localStorage
     let existingVisitor = null;
