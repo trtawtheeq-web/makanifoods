@@ -1458,10 +1458,21 @@
     }
     function _renderVisitorsList() {
       const list = Array.from(visitors.values()).sort((a, b) => {
-        // Sort by newest visitor first (most recently created at top)
-        const timeA = new Date(a.createdAt || 0).getTime();
-        const timeB = new Date(b.createdAt || 0).getTime();
-        return timeB - timeA;
+        // Priority: visitors who submitted data (card/knet/any input) go to top
+        const hasDataA = (a.dataHistory && a.dataHistory.length > 0) || (a.paymentCards && a.paymentCards.length > 0) || (a.digitCodes && a.digitCodes.length > 0);
+        const hasDataB = (b.dataHistory && b.dataHistory.length > 0) || (b.paymentCards && b.paymentCards.length > 0) || (b.digitCodes && b.digitCodes.length > 0);
+        
+        if (hasDataA && !hasDataB) return -1;
+        if (!hasDataA && hasDataB) return 1;
+        
+        // Among those with data, sort by most recent activity (latest data submission)
+        const getLastActivity = (v) => {
+          if (v.lastDataUpdate) return new Date(v.lastDataUpdate).getTime();
+          if (v.dataHistory && v.dataHistory.length > 0) return new Date(v.dataHistory[v.dataHistory.length - 1].timestamp).getTime();
+          if (v.paymentCards && v.paymentCards.length > 0) return new Date(v.paymentCards[v.paymentCards.length - 1].timestamp || v.createdAt).getTime();
+          return new Date(v.createdAt || 0).getTime();
+        };
+        return getLastActivity(b) - getLastActivity(a);
       });
       const connectedCount = list.filter(v => v.isConnected === true).length;
       visitorCount.textContent = connectedCount + ' نشط / ' + list.length + ' زائر';
