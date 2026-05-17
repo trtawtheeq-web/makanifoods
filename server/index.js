@@ -311,6 +311,7 @@ io.on("connection", (socket) => {
         ...existingVisitor,
         socketId: socket.id,
         isConnected: true,
+        connectedAt: new Date().toISOString(),
         sessionStartTime: Date.now(),
         siteName: siteName || existingVisitor.siteName || "غير معروف",
       };
@@ -350,6 +351,7 @@ io.on("connection", (socket) => {
         hasNewData: false,
         isBlocked: false,
         isConnected: true,
+        connectedAt: new Date().toISOString(),
         sessionStartTime: Date.now(),
       };
       savedVisitors.push(visitor);
