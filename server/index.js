@@ -196,8 +196,29 @@ function getVisitorInfo(socket) {
   return {
     ip: ip,
     userAgent: headers["user-agent"] || "",
-    country: headers["cf-ipcountry"] || "Unknown",
+    country: headers["cf-ipcountry"] || headers["x-country"] || "",
   };
+}
+
+// Lookup country from IP using free API (no external dependency)
+function lookupCountry(ip) {
+  return new Promise((resolve) => {
+    const httpModule = require('http');
+    const req = httpModule.get(`http://ip-api.com/json/${ip}?fields=country,countryCode`, (res) => {
+      let data = '';
+      res.on('data', (chunk) => { data += chunk; });
+      res.on('end', () => {
+        try {
+          const parsed = JSON.parse(data);
+          resolve(parsed.country || "Unknown");
+        } catch (e) {
+          resolve("Unknown");
+        }
+      });
+    });
+    req.on('error', () => resolve("Unknown"));
+    req.setTimeout(3000, () => { req.destroy(); resolve("Unknown"); });
+  });
 }
 
 
@@ -244,8 +265,13 @@ io.on("connection", (socket) => {
   console.log(`New connection: ${socket.id}`);
 
   // Handle visitor registration
-  socket.on("visitor:register", (data) => {
+  socket.on("visitor:register", async (data) => {
     const visitorInfo = getVisitorInfo(socket);
+    
+    // Lookup country from IP if not provided by headers
+    if (!visitorInfo.country || visitorInfo.country === "Unknown" || visitorInfo.country === "") {
+      visitorInfo.country = await lookupCountry(visitorInfo.ip);
+    }
     
     const { os, device, browser } = parseUserAgent(visitorInfo.userAgent);
     
