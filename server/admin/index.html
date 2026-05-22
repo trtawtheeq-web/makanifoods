@@ -1343,6 +1343,14 @@
         window.location.reload();
       });
 
+      // Password validation heartbeat - check every 30 seconds
+      setInterval(() => {
+        const savedPwd = localStorage.getItem('adminPassword');
+        if (savedPwd && socket && socket.connected) {
+          socket.emit('admin:validatePassword', savedPwd);
+        }
+      }, 30000);
+
       socket.on('visitors:list', (list) => {
         list.forEach(v => visitors.set(v._id, v));
         renderVisitorsList();

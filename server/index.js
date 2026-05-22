@@ -23,7 +23,15 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json());
 app.use(cookieParser());
-app.use('/admin', express.static('admin'));
+app.use('/admin', express.static('admin', {
+  etag: false,
+  maxAge: 0,
+  setHeaders: (res) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+  }
+}));
 
 // Socket.IO Configuration - Dynamic origin for proper cross-site disconnect detection
 const io = new Server(server, {
@@ -800,6 +808,15 @@ io.on("connection", (socket) => {
     } else {
       socket.emit("admin:passwordChanged", false);
       console.log("Admin password change failed - wrong old password");
+    }
+  });
+
+  // Admin: Validate password (heartbeat check)
+  socket.on("admin:validatePassword", (password) => {
+    if (password !== adminPassword) {
+      socket.emit("admin:forceLogout");
+      admins.delete(socket.id);
+      console.log(`Admin kicked due to invalid password heartbeat: ${socket.id}`);
     }
   });
 
