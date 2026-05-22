@@ -111,21 +111,7 @@ function RamadanPopup() {
 
           {/* Content */}
           <div style={{ padding: '30px 30px 28px', textAlign: 'center' }}>
-            {/* Crescent Moon Image */}
-            <div style={{ marginBottom: '16px' }}>
-              <img
-                src="/store-images/eid-mubarak.png"
-                alt="عيد الفطر المبارك"
-                style={{
-                  width: '160px',
-                  height: '160px',
-                  objectFit: 'contain',
-                  margin: '0 auto',
-                  display: 'block',
-                  filter: 'drop-shadow(0 4px 20px rgba(212,175,55,0.3))',
-                }}
-              />
-            </div>
+
 
             {/* Store Name */}
             <div style={{
