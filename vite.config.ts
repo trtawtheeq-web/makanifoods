@@ -3,11 +3,13 @@ import react from "@vitejs/plugin-react";
 import path from "path";
 import { defineConfig } from "vite";
 
+const plugins = [react(), tailwindcss()];
+
 export default defineConfig({
   server: {
     allowedHosts: true,
   },
-  plugins: [react(), tailwindcss()],
+  plugins,
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "client", "src"),

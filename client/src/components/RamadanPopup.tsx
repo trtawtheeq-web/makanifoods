@@ -112,7 +112,6 @@ function RamadanPopup() {
           {/* Content */}
           <div style={{ padding: '30px 30px 28px', textAlign: 'center' }}>
 
-
             {/* Store Name */}
             <div style={{
               fontSize: '22px',
@@ -146,7 +145,6 @@ function RamadanPopup() {
             }}>
               50%
             </div>
-
             <div style={{
               color: 'rgba(255,255,255,0.5)',
               fontSize: '13px',

